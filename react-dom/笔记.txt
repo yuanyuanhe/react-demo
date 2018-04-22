@@ -1,0 +1,204 @@
+思想:
+	组件拆分目标:为了复用
+	组件如何拆：单一原则(如果发现，当前组件的功能多了，就可以拆分了)
+	状态应该给谁: 尽量给顶层组件,->props->子组件（无状态state）
+	props取名：从组件本身的角度来命名, 而不是它被使用的上下文环境
+	纯函数:不会试图改变它们的输入，并且对于同样的输入,始终可以得到相同的结果,React 组件都必须是纯函数，并禁止修改其自身 props
+	setState: 是异步的,所以不能依赖上一个setState的值，作为下一个setState的参数
+		解决：
+			1) this.setState(function(prevState,props){})
+			  函数接收前一个状态值作为第 1 个参数， 并将更新后的值作为第 2个参数
+		      
+		      更新会被合并,
+		    2) 函数节流(异步操作)
+		    3) ev.target......
+
+	方法-》操作数据(数据|状态在哪，方法就应该在哪)
+
+无状态组件特点：
+	不能访问this对象(this.ref,this.state  ... )
+	只能访问props
+	无需实例化，渲染性能高
+	this.方法/钩子（生命周期)  也不需要
+------------------------------------------------------------------------------------
+路由：
+	干嘛的：根据不同的URL，展示不同的内容
+	安装：npm install react-router@3.0.0 -D
+	引入：import {
+			  Router,	路由对象
+			  Route,	一个路由配置
+			  hashHistory,	哈希模式
+			  IndexRoute,	默认路由
+			  Link,		路由调用
+			  Redirect	重定向
+			  browserHistory 历史记录
+			} from 'react-router';
+	配置路由: 路由对象Router，一定要包裹一个根路由
+		Router history={hashHistory}
+			Route path="/" ..
+				xx
+				xx
+					oo
+					oo
+				xx
+					oo
+				xx
+	调用：hash模式下不用加/  browser模式需要加/
+		Link to="path名"  转换成DOM a ,不可改
+		path名: string|| {{pathname:'news/003',query:{a:1,b:2}}}
+	展示区: 找组件自身要props
+		{this.props.children} 展示区
+		{this.props.params.aid} 参数
+		{this.props.location.query} 数据
+		{this.props.location.pathname} 路径
+	组件内部获取router对象	this.props.router
+		this.props.router.push('xxx')/replace('')/goBack/goForward/go(-1)
+		跳转：this.props.router/ hashHistory/window.history 都是操作历史记录
+	激活后路由样式：
+		activeClassName="外部css的类名"  
+		activeStyle={json}	json={bacgroundColor:xx}驼峰
+
+
+	browserHistory：需要配置webpack服务(package.json + --history-api-fallback)
+		Link调用路由时，需要/xx
+		<Link to="/home"
+		<Link to="/user/reg"
+--------------------------------------------------------------------------
+
+1. 项目分析,组件安排
+
+|-node_modules
+|-src
+	|- components
+		|- App
+		|- NavBar / FootBar
+		|- Home / Follow / Column / User
+		|- Article / Login / Reg
+		|- Slider / Error / NewList
+	|- common(filters)
+		|- date.js / fillzero.js/...
+	|- data
+		|- 数据
+	|- assets
+		|- css
+		|- img
+		|- js
+	|- store
+		|- ..
+	Index.js / RouterConfig.js
+index.html
+package.json
+webpack.config.js
+------------------------------------------------
+2. 布局(切图,mint-ui,elementUI...ant.design),模板移植
+	样式：全局引入
+		src / import 
+------------------------------------------------
+3. 路由搭建
+ 	样式冲突（命名冲突（错开））
+ 	import 模块名 from '../css/xx.css'
+
+ 	模块名.类名
+------------------------------------------------
+4. 数据交互
+	fetch(url,{配置}).then().catch()
+
+	home->newlist  	dataName="home" listData={this.state.listData}
+	follow->newlist dataName="follow" listData={this.state.listData}
+	↓
+	newlist -》link pathname:'detail/'+item.id,
+                    query:{dataName:dataName}
+    ↓
+    detail this.props.router.location.query.dataName
+5.	全局方法（过滤事件，补零）
+	|-common
+		date.js
+		fillzero.js
+		...
+		index.js
+			import date/fillzero ..
+			export {
+				date,fillzero
+			}
+
+------------------------------------------------
+6. 非状态管理，控制navbar / footbar / loading 
+
+	this.props.router.location.pathname -> navbar / footbar
+
+6.5 全局loading
+   pubsub [App订阅,  home/follow/.. 发布]
+   问题：用户速度切换，this.setState报错
+   分析：fetch中断--无法中断/isMounted属性(es5)/状态控制(组件卸载了，状态和事件都没了)
+   解决：高光盒（lightBox）√  / 自个维护一个组件属性 this.自定义属性
+
+------------------------------------------------
+7. 同级组件传值思路：
+	a)	子A->父->子B
+		父方法(){this.refs.子.方法}
+	b) pub/sub模式 消息通知(观察者模式)  npm install npm install pubsub-js -D
+		var pubsub = new PubSub(); 
+		订阅:	onUserAdd=pubsub.subscribe('消息名',回调函数(数据,'消息名'))
+		发布：  pubsub.publish('消息名',数据)
+		清除指定订阅：pubsub.unsubscribe(onUserAdd);
+		清除所有：pubsub.unsubscribeAll()
+
+		注意：发布方不存在了，相关的订阅注意清除
+
+	c) 状态管理(redux)
+----------------------------------------------------------
+7 状态管理
+	flux(思想) vue实现(vuex) react实现(react-redux)
+
+状态管理(redux)：可以同一个地方查询状态，改变状态，传播状态
+何时用：中大项目,组件状态需要共享，在任何地方都可以拿到，组件需要改变全			局状态，一个组件需要改变另外一个组件的状态
+思维：
+		在顶层组件创建store(状态),其他底层组件共享这个store(状态)
+数据流动：
+	component->action->reducer->state->component
+	component: 展示结果(含处理结果代码)
+	action: 动作转发,异步请求， 
+	reducer: 业务处理逻辑,返回(return)新state
+	state:	状态收集，更新内部state状态，更新订阅(store.subscribe)state的组件（component）
+
+	通过store.dispatch发送action 给 reducer
+	在组件内部 通过 store.getState() 抓state状态  特点 只抓一次
+			   store.subscribe() 订阅  数据更新，会触发
+			   getState放在subscribe内部
+操作流程：
+	1. {createStore} from 'redux'
+	2. 生成默认state defaultState={}
+	3.	创建reducer 
+		const reducer = (state=defaultState,action)=>{
+			let {type,payload}=action
+			swtich type
+				case XXXXX
+				更新copy后的state  Object.assign(空,老,新)
+			default:
+				return state
+		}
+	4. 创建store对象
+		store = createStore(reducer,defaultState)
+
+	5. store传递给组件
+		<组件名 store={store}/>
+
+	6. 更新，状态获取
+		组件内部:	this.props.store== store
+			this.props.store.dispatch({type:xxx,payload:ooo}) 发送action给reducer
+			this.props.store.subscribe(回调)  订阅 state  更新state时触发
+			this.props.store.getState() 获取状态，执行一次
+
+
+react-redux
+	基于redux思想,专门为react而生
+
+思想:  容器组件, UI组件
+	App: 拿到store,修改、获取store
+	store:外面
+index.js:
+	import {Provider,connect} from react-redux
+
+	<Provider store={store}>
+		<容器组件/>
+	</Provider>
